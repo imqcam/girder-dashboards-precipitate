@@ -1,0 +1,34 @@
+{
+  "name": "@girder/girder-plugin-dashboards-precipitate",
+  "version": "0.1.0",
+  "description": "Precipitate Analysis dashboard for girder-dashboards",
+  "type": "module",
+  "files": [
+    "dist",
+    "package.json"
+  ],
+  "main": "./dist/girder-plugin-dashboards-precipitate.umd.cjs",
+  "module": "./dist/girder-plugin-dashboards-precipitate.js",
+  "exports": {
+    ".": {
+      "import": "./dist/girder-plugin-dashboards-precipitate.js",
+      "require": "./dist/girder-plugin-dashboards-precipitate.umd.cjs"
+    },
+    "./style.css": "./dist/style.css",
+    "./package.json": "./package.json"
+  },
+  "scripts": {
+    "build": "vite build",
+    "dev": "vite build --watch"
+  },
+  "author": "Kacper Kowalik",
+  "license": "BSD-3-Clause",
+  "devDependencies": {
+    "pug": "^3.0.2",
+    "stylus": "^0.64.0",
+    "vite": "^8.0.0"
+  },
+  "dependencies": {
+    "chart.js": "^4.5.1"
+  }
+}

@@ -1,0 +1,174 @@
+#!/usr/bin/env python3
+"""Prepare a running Girder for test/browser/verify.cjs.
+
+The browser harness asserts against real content, so it needs an admin account,
+the Precipitate Analysis dashboard enabled, an assetstore to upload into, and the
+synthetic micrographs to upload. This script puts a fresh instance into that state
+and is safe to re-run against a dirty one.
+
+    python3 test/browser/seed.py
+
+Environment: GIRDER_URL, GIRDER_ADMIN, GIRDER_PASSWORD, GIRDER_EMAIL.
+"""
+
+import base64
+import json
+import os
+import sys
+import urllib.error
+import urllib.parse
+import urllib.request
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+BASE = os.environ.get("GIRDER_URL", "http://127.0.0.1:8989").rstrip("/")
+API = f"{BASE}/api/v1"
+ADMIN = os.environ.get("GIRDER_ADMIN", "admin")
+PASSWORD = os.environ.get("GIRDER_PASSWORD", "adminpassword")
+EMAIL = os.environ.get("GIRDER_EMAIL", "admin@example.com")
+
+DASHBOARD_KEYS = ["precipitate-analysis"]
+
+#: Uploading a micrograph needs somewhere to put the bytes, and a fresh Girder has
+#: no assetstore at all. Kept under build/ so it is gitignored and easy to discard.
+ASSETSTORE_ROOT = os.environ.get(
+    "GIRDER_ASSETSTORE",
+    os.path.join(
+        os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+        "build",
+        "assetstore",
+    ),
+)
+
+
+def request(method, path, params=None, token=None, auth=None):
+    url = f"{API}/{path}"
+    body = None
+    headers = {}
+    if params:
+        encoded = urllib.parse.urlencode(params)
+        if method == "GET":
+            url = f"{url}?{encoded}"
+        else:
+            body = encoded.encode()
+            headers["Content-Type"] = "application/x-www-form-urlencoded"
+    if token:
+        headers["Girder-Token"] = token
+    if auth:
+        raw = base64.b64encode(f"{auth[0]}:{auth[1]}".encode()).decode()
+        headers["Authorization"] = f"Basic {raw}"
+
+    req = urllib.request.Request(url, data=body, headers=headers, method=method)
+    try:
+        with urllib.request.urlopen(req) as resp:
+            return json.loads(resp.read() or b"null")
+    except urllib.error.HTTPError as exc:
+        detail = exc.read().decode(errors="replace")
+        raise RuntimeError(f"{method} {path} -> {exc.code}: {detail}") from exc
+
+
+def ensure_admin():
+    """Create the first user (Girder makes it a site admin), or reuse it."""
+    try:
+        resp = request(
+            "POST",
+            "user",
+            {
+                "login": ADMIN,
+                "password": PASSWORD,
+                "email": EMAIL,
+                "firstName": "Test",
+                "lastName": "Admin",
+            },
+        )
+        print(f"created admin user '{ADMIN}'")
+        return resp["authToken"]["token"]
+    except RuntimeError as exc:
+        # Already registered: just log in. Any other failure is fatal.
+        if "already" not in str(exc).lower():
+            raise
+        resp = request("GET", "user/authentication", auth=(ADMIN, PASSWORD))
+        print(f"reusing existing admin user '{ADMIN}'")
+        return resp["authToken"]["token"]
+
+
+def ensure_enabled(token):
+    dashboards = request("GET", "dashboard", {"includeDisabled": "true"}, token=token)
+    byKey = {d["key"]: d for d in dashboards}
+
+    ids = {}
+    for key in DASHBOARD_KEYS:
+        match = byKey.get(key)
+        if match is None:
+            raise SystemExit(
+                f"dashboard '{key}' is not registered (found: {sorted(byKey)}). "
+                "Is the plugin loaded?"
+            )
+        if match["enabled"]:
+            print(f"dashboard '{key}' already enabled")
+        else:
+            request(
+                "PUT", f"dashboard/{match['_id']}", {"enabled": "true"}, token=token
+            )
+            print(f"enabled dashboard '{key}'")
+        ids[key] = match["_id"]
+    return ids
+
+
+def ensure_assetstore(token):
+    """Make sure uploads have somewhere to land."""
+    existing = request("GET", "assetstore", {"limit": "0"}, token=token)
+    current = next((a for a in existing if a.get("current")), None)
+    if current:
+        print(f"assetstore '{current['name']}' already current")
+        return current["_id"]
+
+    os.makedirs(ASSETSTORE_ROOT, exist_ok=True)
+    created = request(
+        "POST",
+        "assetstore",
+        {"type": "0", "name": "Test filesystem", "root": ASSETSTORE_ROOT},
+        token=token,
+    )
+    print(f"created filesystem assetstore at {ASSETSTORE_ROOT}")
+    return created["_id"]
+
+
+def ensure_micrograph():
+    """Write the synthetic TIFFs the precipitate dashboard test uploads.
+
+    Two of them: a bare micrograph, and the same specimen as an instrument would
+    have written it — with a scale bar and an info panel across the bottom, and a
+    TESCAN header declaring the pixel size — which is what the scale detection
+    and panel exclusion are checked against.
+    """
+    import micrograph
+
+    written = []
+    # ...and a third: the same panel with the vendor header stripped, which is
+    # what an image editor leaves behind and is the case where the drawn bar is
+    # the only thing left to measure.
+    for panel, header in ((False, True), (True, True), (True, False)):
+        path, count = micrograph.write(panel=panel, header=header)
+        print(f"wrote {path} ({count} synthetic precipitates)")
+        written.append(path)
+    return written
+
+
+def main():
+    print(f"seeding {BASE}")
+    token = ensure_admin()
+    ensure_assetstore(token)
+    ensure_enabled(token)
+
+    ensure_micrograph()
+
+    visible = {d["key"] for d in request("GET", "dashboard")}
+    missing = set(DASHBOARD_KEYS) - visible
+    if missing:
+        raise SystemExit(f"dashboards not publicly visible: {sorted(missing)}")
+    print("ready for test/browser/verify.cjs")
+
+
+if __name__ == "__main__":
+    sys.exit(main())
