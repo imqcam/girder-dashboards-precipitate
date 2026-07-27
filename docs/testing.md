@@ -121,9 +121,9 @@ have to build **two** web clients, since `girder-dashboards` is a dependency who
 before either plugin loads.
 
 - **`test`** — build both web clients, then `tox -e lint` and `tox -e pytest`. The build steps are
-  load-bearing, not cosmetic; see the warning above. `[testenv:pytest]` declares `extras = analysis`,
-  without which the analysis tests cannot import numpy.
-- **`browser`** — `pip install -e '.[analysis]'`, build both web clients, `npm ci` + `playwright
+  load-bearing, not cosmetic; see the warning above. The numpy/scipy/scikit-image stack the analysis
+  tests need arrives with the package itself, so no extra is declared.
+- **`browser`** — `pip install -e .`, build both web clients, `npm ci` + `playwright
   install chromium` in `test/browser`, start `girder serve` on 8989 with a wait loop, `seed.py`,
   then `verify.cjs`. Screenshots and `girder.log` upload as an artifact on every run
   (`if: always()`). There is no broker in CI, so this job exercises the in-process fallback; the

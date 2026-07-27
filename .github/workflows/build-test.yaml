@@ -120,9 +120,9 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           python -m pip install -e ./.girder-dashboards
-          # The analysis extra carries the scientific stack; without it the
-          # dashboard reports itself unavailable and the browser checks fail.
-          python -m pip install -e '.[analysis]'
+          # This pulls the scientific stack with it; without it the dashboard
+          # reports itself unavailable and the browser checks fail.
+          python -m pip install -e .
       - name: Build the girder-dashboards web client
         run: |
           cd .girder-dashboards/girder_dashboards/web_client

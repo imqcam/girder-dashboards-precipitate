@@ -1,9 +1,10 @@
 """The published detection tunings, and how a request resolves to a parameter set.
 
 Split out of :py:mod:`.analysis` because the REST layer needs to offer the presets
-and validate a request without importing numpy, scipy and scikit-image. Those are
-an optional extra of this plugin; a Girder that has not installed them must still
-be able to load and to explain itself.
+and validate a request without importing numpy, scipy and scikit-image. They are
+requirements of this package, but there is no reason for the Girder process to pull
+scikit-image into memory to list two presets — and a Girder whose environment is
+missing them must still be able to load and to explain itself.
 """
 
 #: Detection tunings published with the research code. The two conditions need

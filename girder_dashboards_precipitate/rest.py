@@ -133,9 +133,10 @@ class Precipitate(Resource):
         if missing:
             raise RestException(
                 "This Girder is missing the analysis dependencies "
-                f"({', '.join(missing)}). Install them with "
-                "'pip install girder-dashboards-precipitate[analysis]' in both the "
-                "Girder and the Celery worker environment.",
+                f"({', '.join(missing)}). They are requirements of "
+                "girder-dashboards-precipitate, so reinstalling the package "
+                "('pip install girder-dashboards-precipitate') in both the Girder "
+                "and the Celery worker environment brings them.",
                 code=503,
             )
 

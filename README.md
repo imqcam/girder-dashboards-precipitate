@@ -11,17 +11,17 @@ turned into something you can run from a browser.
 ## Installing
 
 ```bash
-pip install 'girder-dashboards-precipitate[analysis]'
+pip install girder-dashboards-precipitate
 ```
 
 `girder-dashboards` comes along as a dependency; installing this plugin adds one more card to its
 gallery. Like every dashboard it arrives **disabled** — a site admin enables it from
 *Admin console → Plugins → Dashboards*.
 
-The `analysis` extra is the scientific stack (numpy/scipy/scikit-image/tifffile/…). It is an extra
-rather than a hard requirement so that installing the plugin to *look* at the dashboard does not
-drag in scikit-image. Install it in **both** the Girder environment and the Celery worker
-environment. Without it the dashboard says so on its own page instead of failing a run.
+The scientific stack the analysis needs (numpy/scipy/scikit-image/tifffile/…) comes with it — it is
+a requirement rather than an extra, because a dashboard that can only report that it cannot compute
+anything is no use. Install the package in **both** the Girder environment and the Celery worker
+environment; the dashboard reports a missing dependency on its own page instead of failing a run.
 
 There is no broker requirement: the computation runs as a Celery task on the `local` queue when a
 worker is consuming it, and in a thread of the Girder process when none is — so a plain
@@ -109,7 +109,7 @@ its form:
 ## Development
 
 ```bash
-pip install -e '.[analysis]'
+pip install -e .
 (cd girder_dashboards_precipitate/web_client && npm install && npm run build)
 pytest girder_dashboards_precipitate/tests -q
 ruff check .

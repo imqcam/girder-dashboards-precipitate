@@ -24,16 +24,15 @@ import importlib.util
 
 KEY = "precipitate-analysis"
 
-#: The scientific stack the *analysis* needs. It is an extra rather than a hard
-#: requirement of this plugin
-#: (``pip install girder-dashboards-precipitate[analysis]``), because installing
-#: the plugin to look at the dashboard should not drag in scikit-image. The
-#: capability endpoint reports what is missing so the dashboard can say so plainly
-#: instead of failing a run with an ImportError.
-#: Import name -> distribution name. Must stay in step with
-#: ``extras_require["analysis"]`` in setup.py: a name missing from here means
-#: the capability endpoint reports "ok" and the run then dies on an ImportError,
-#: which is exactly what this probe exists to prevent. ``imagecodecs`` is what
+#: The scientific stack the *analysis* needs. Import name -> distribution name.
+#: These are hard requirements of this package, so a pip install brings them and
+#: the capability endpoint should always report "ok". It is probed anyway: the
+#: Celery worker runs in an environment of its own that nothing here installs, and
+#: "scikit-image is not installed" is a better answer than a run that dies on an
+#: ImportError. Must stay in step with ``ANALYSIS_REQUIREMENTS`` in setup.py: a
+#: name missing from here means the capability endpoint reports "ok" and the run
+#: then dies on exactly the ImportError this probe exists to prevent.
+#: ``imagecodecs`` is what
 #: tifffile delegates LZW and deflate to — i.e. what real micrographs need — and
 #: ``imageio`` decodes the non-TIFF formats the REST layer accepts.
 REQUIREMENTS = {

@@ -117,10 +117,19 @@ pip install opencv-python-headless pandas   # reference only, never a plugin dep
 python3 test/fidelity/compare_to_original.py /path/to/research/repo
 ```
 
-The analysis stack itself is the `analysis` extra: `pip install -e '.[analysis]'`. (It was called
-`precipitate` while this lived in girder-dashboards; renamed on extraction, since
-`girder-dashboards-precipitate[precipitate]` reads badly. `tests/test_packaging.py` parses
-`setup.py` for it, so the name is asserted, not just documented.)
+The analysis stack itself is a plain **requirement** — a `pip install` of this package brings
+numpy/scipy/scikit-image/tifffile with it. It was an extra (`precipitate` here, `analysis` after the
+extraction) until 2026-07-27; making it optional bought nothing, since this package *is* one
+dashboard and a dashboard that can only explain that it cannot compute anything is not worth
+installing, and it cost a real deployment failure mode — `wholetale-docker/build_plugins.sh` runs a
+plain `pip install -e .`, which skipped the extra silently. `setup.py` keeps the list under
+`ANALYSIS_REQUIREMENTS` and concatenates it into `install_requires`; `tests/test_packaging.py`
+parses that name and asserts both the correspondence with `REQUIREMENTS` and that no
+`extras_require` has crept back.
+
+`missingRequirements()` and the capability probe **stay** — the Celery worker is a separate
+environment nothing here installs into, and "scikit-image is not installed" beats a run that dies
+on an ImportError.
 
 ## The two execution paths
 
@@ -329,12 +338,14 @@ Sibling plugins are live-mounted into the Whole Tale dev stack as `/girder-plugi
 `girder_dashboards_precipitate` module and the task will fail to dispatch. Two things are needed:
 
 1. a volume line on the `local_worker` service, and
-2. the `analysis` extra installed in both containers — `wholetale-docker/build_plugins.sh` runs a
-   plain `pip install -e .`, so the extra is *not* picked up automatically. Either change that call
-   for this plugin or install the wheels into the image.
+2. `pip install -e .` having actually run in both containers — which is what
+   `wholetale-docker/build_plugins.sh` does, and since the scientific stack is now in
+   `install_requires` rather than an extra, that is all it takes. (It used to need
+   `.[analysis]`, which the script did not do.)
 
 The base image (`wholetale-docker/Dockerfile.dev`) ships no numpy/scipy/scikit-image; nothing else in
-the stack declares them either.
+the stack declares them either, so both containers will build them (or fetch wheels) on install —
+worth knowing before wondering why the plugin install step got slower.
 
 ## Verification status
 
@@ -495,7 +506,8 @@ leave any of it live and the form on screen stops matching the numbers that come
 
 ## Follow-ups
 
-- Mount into `local_worker` and install the `analysis` extra in the dev stack (see Deployment).
+- Mount into `local_worker` in the dev stack (see Deployment). The extra no longer has to be
+  remembered there, but the volume line does.
 - The detection parameters are overridable through the REST API (`overrides`) but the UI only offers
   the two presets — an "advanced" panel would be the natural next step, as would letting a run reuse
   an image already in Girder instead of always uploading one.

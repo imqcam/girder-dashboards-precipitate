@@ -1105,8 +1105,9 @@ var PrecipitateDashboard = View.extend({
                 title: 'Analysis dependencies are missing',
                 message:
                     `This Girder cannot run the analysis: ${(dependencies.missing || []).join(', ')} ` +
-                    'is not installed. Install girder-dashboards-precipitate\'s "analysis" ' +
-                    'extra in both the Girder and the Celery worker environment.'
+                    'is not installed. It is a requirement of girder-dashboards-precipitate, ' +
+                    'so reinstalling the package in both the Girder and the Celery worker ' +
+                    'environment brings it.'
             };
         }
         const state = this.run ? this.run.state || {} : {};
