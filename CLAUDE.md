@@ -122,10 +122,10 @@ numpy/scipy/scikit-image/tifffile with it. It was an extra (`precipitate` here, 
 extraction) until 2026-07-27; making it optional bought nothing, since this package *is* one
 dashboard and a dashboard that can only explain that it cannot compute anything is not worth
 installing, and it cost a real deployment failure mode — `wholetale-docker/build_plugins.sh` runs a
-plain `pip install -e .`, which skipped the extra silently. `setup.py` keeps the list under
-`ANALYSIS_REQUIREMENTS` and concatenates it into `install_requires`; `tests/test_packaging.py`
-parses that name and asserts both the correspondence with `REQUIREMENTS` and that no
-`extras_require` has crept back.
+plain `pip install -e .`, which skipped the extra silently. PEP 621 `dependencies` is one flat
+array, so `pyproject.toml` fences the list off inside it between `# ANALYSIS_REQUIREMENTS:` and
+`# end ANALYSIS_REQUIREMENTS`; `tests/test_packaging.py` parses that block and asserts both the
+correspondence with `REQUIREMENTS` and that no `[project.optional-dependencies]` has crept back.
 
 `missingRequirements()` and the capability probe **stay** — the Celery worker is a separate
 environment nothing here installs into, and "scikit-image is not installed" beats a run that dies
@@ -301,13 +301,18 @@ arbitrary readable file and have its results stored next to an unrelated image.
 
 ## Commands
 
-Python (the sibling `../girder-dashboards/venv` has this package installed editable, along with
-girder, girder-dashboards, pytest-girder and ruff):
+Packaging is **uv**-driven: PEP 621 metadata in `pyproject.toml` (no `setup.py`), dev dependencies
+in a PEP 735 `[dependency-groups] dev` (no `requirements-dev.txt`), and `uv.lock` committed.
+`tox.ini` declares `requires = tox-uv`, so every tox env is built by `uv venv` / `uv pip install`
+and hardlinks out of the shared `~/.cache/uv` instead of copying a few hundred MB per env. The lock
+governs `uv sync` only — tox resolves fresh, so CI still catches upstream breakage.
 
 ```bash
-../girder-dashboards/venv/bin/pytest girder_dashboards_precipitate/tests -q   # 102 tests
-../girder-dashboards/venv/bin/ruff check .
+uv sync                                        # create/refresh .venv (project editable + dev group)
+uv run pytest girder_dashboards_precipitate/tests -q   # 103 tests; needs MongoDB on :27017
+uvx ruff check .
 tox -e pytest   /   tox -e lint                # equivalents (pytest env pulls the extra)
+uv build                                       # sdist + wheel
 ```
 
 Web client, from `girder_dashboards_precipitate/web_client/`:
@@ -471,8 +476,8 @@ reintroduced. Each has a regression test unless noted.
    neighbour was painted mid-ramp on the spacing map with a `NaN` tooltip; `DELETE
    /precipitate/run/{id}` deleted a folder subtree under `DATA_WRITE` where core requires
    `DATA_OWN`; the dependency probe omitted `imageio`/`imagecodecs`, so it could report "ok" for an
-   environment that cannot decode a compressed TIFF (now asserted against `setup.py`'s extra by a
-   test); `presetParams` accepted `None` for parameters used in arithmetic; a 3-page TIFF stack was
+   environment that cannot decode a compressed TIFF (now asserted against the packaging metadata by
+   a test); `presetParams` accepted `None` for parameters used in arithmetic; a 3-page TIFF stack was
    read as three colour channels; and `_localCopy` leaked its temp directory when the assetstore
    read failed.
 

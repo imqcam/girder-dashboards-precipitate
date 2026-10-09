@@ -41,7 +41,7 @@ The detail behind the short Commands section in `../CLAUDE.md`.
 
 ```bash
 GIRDER_MONGO_URI=mongodb://localhost:27017/girder_precip_smoke \
-  ../girder-dashboards/venv/bin/girder serve --host 127.0.0.1 --port 8989
+  uv run girder serve --host 127.0.0.1 --port 8989
 ```
 
 The installed girder wheel serves the built core web client at `/`, so the whole UI is reachable.
@@ -75,8 +75,8 @@ the same broker before seeding:
 
 ```bash
 export GIRDER_WORKER_BROKER=redis://127.0.0.1:6379/1 GIRDER_WORKER_BACKEND=redis://127.0.0.1:6379/1
-../girder-dashboards/venv/bin/girder serve --host 127.0.0.1 --port 8989 > girder.log 2>&1 &
-../girder-dashboards/venv/bin/celery -A girder_worker.app worker -Q local -c 2 -l INFO > worker.log 2>&1 &
+uv run girder serve --host 127.0.0.1 --port 8989 > girder.log 2>&1 &
+uv run celery -A girder_worker.app worker -Q local -c 2 -l INFO > worker.log 2>&1 &
 ```
 
 The harness asserts on the dashboard's own "where this runs" line, so it passes either way and the
@@ -123,7 +123,7 @@ before either plugin loads.
 - **`test`** — build both web clients, then `tox -e lint` and `tox -e pytest`. The build steps are
   load-bearing, not cosmetic; see the warning above. The numpy/scipy/scikit-image stack the analysis
   tests need arrives with the package itself, so no extra is declared.
-- **`browser`** — `pip install -e .`, build both web clients, `npm ci` + `playwright
+- **`browser`** — `uv pip install --system -e .`, build both web clients, `npm ci` + `playwright
   install chromium` in `test/browser`, start `girder serve` on 8989 with a wait loop, `seed.py`,
   then `verify.cjs`. Screenshots and `girder.log` upload as an artifact on every run
   (`if: always()`). There is no broker in CI, so this job exercises the in-process fallback; the

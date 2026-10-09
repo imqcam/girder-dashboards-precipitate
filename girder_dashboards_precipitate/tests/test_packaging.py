@@ -11,18 +11,25 @@ import re
 
 from girder_dashboards_precipitate import REQUIREMENTS, missingRequirements
 
-SETUP_PY = pathlib.Path(__file__).resolve().parents[2] / "setup.py"
+PYPROJECT = pathlib.Path(__file__).resolve().parents[2] / "pyproject.toml"
 
 
 def _analysisRequirements():
-    """The distribution names in ANALYSIS_REQUIREMENTS, from setup.py.
+    """The distribution names in the ANALYSIS_REQUIREMENTS block of pyproject.toml.
 
-    Parsed rather than imported: importing setup.py would run setup().
+    PEP 621 ``dependencies`` is one flat array, so the analysis stack is fenced
+    off inside it by comment markers and read back out of the raw text here --
+    the installed metadata would not say which requirements are the analysis.
     """
-    source = SETUP_PY.read_text()
-    marker = "ANALYSIS_REQUIREMENTS = ["
+    source = PYPROJECT.read_text()
+    marker = "# ANALYSIS_REQUIREMENTS:"
     block = source[source.index(marker) + len(marker) :]
-    block = block[: block.index("]")]
+    block = block[: block.index("# end ANALYSIS_REQUIREMENTS")]
+    # Requirement strings only -- the fence also carries prose comments, and
+    # prose can quote things.
+    block = "\n".join(
+        line for line in block.splitlines() if not line.lstrip().startswith("#")
+    )
     # 'scikit-image>=0.21' -> 'scikit-image'
     return {
         re.split(r"[<>=!~]", name)[0].strip()
@@ -41,9 +48,11 @@ def test_the_analysis_stack_is_installed_unconditionally():
     deployment tooling that runs a plain ``pip install -e .`` silently skipped the
     extra this used to be.
     """
-    source = SETUP_PY.read_text()
-    assert "+ ANALYSIS_REQUIREMENTS" in source
-    assert "extras_require" not in source
+    source = PYPROJECT.read_text()
+    dependencies = source[source.index("dependencies = [") :]
+    dependencies = dependencies[: dependencies.index("\n]")]
+    assert "# ANALYSIS_REQUIREMENTS:" in dependencies
+    assert "optional-dependencies" not in source
 
 
 def test_probe_finds_the_installed_stack():

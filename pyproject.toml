@@ -1,3 +1,72 @@
 [build-system]
-requires = ["setuptools"]
+requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
+
+[project]
+name = "girder-dashboards-precipitate"
+version = "0.1.0"
+description = "Precipitate detection and inter-particle spacing analysis, as a girder-dashboards dashboard"
+readme = "README.md"
+license = "BSD-3-Clause"
+license-files = ["LICENSE"]
+authors = [{ name = "Kacper Kowalik" }]
+requires-python = ">=3.10"
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Web Environment",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+]
+dependencies = [
+    "girder-dashboards>=0.2",
+    # The analysis is scheduled as a job on the Celery 'local' queue, with an
+    # in-process fallback. Both need these; girder-dashboards itself does not,
+    # which is why they are declared here and not there.
+    "girder-jobs>=5",
+    "girder-worker>=5",
+    # ANALYSIS_REQUIREMENTS: the scientific stack the analysis itself needs.
+    # Hard requirements, not an extra: this package is one dashboard, and a
+    # dashboard that can only explain that it cannot compute anything is not
+    # worth installing. It was an `analysis` extra at first, which cost more
+    # than it saved -- deployment tooling that installs plugins with a plain
+    # `pip install -e .` skipped it silently, and it had to be remembered
+    # separately for the Girder and the Celery worker environment. Fenced and
+    # named so that the correspondence with
+    # ``girder_dashboards_precipitate.REQUIREMENTS`` stays visible; it is
+    # asserted by ``tests/test_packaging.py``, which parses this block.
+    "numpy>=1.24",
+    "scipy>=1.10",
+    "scikit-image>=0.21",
+    "tifffile>=2023.7.10",
+    # TIFFs out of SEM software are usually LZW- or deflate-compressed, which
+    # tifffile delegates to imagecodecs.
+    "imagecodecs>=2023.3.16",
+    "pillow>=9",
+    "imageio>=2.28",
+    # end ANALYSIS_REQUIREMENTS
+]
+
+[project.entry-points."girder.plugin"]
+dashboards_precipitate = "girder_dashboards_precipitate.plugin:PrecipitatePlugin"
+
+# Makes this package's Celery tasks discoverable by girder_worker, which builds
+# CELERY_INCLUDE from this entry point group at worker startup.
+[project.entry-points."girder_worker_plugins"]
+dashboards_precipitate = "girder_dashboards_precipitate.worker_plugin:PrecipitateWorkerPlugin"
+
+[dependency-groups]
+dev = [
+    "pytest",
+    "pytest-cov",
+    "pytest-girder",
+]
+
+[tool.setuptools.packages.find]
+include = ["girder_dashboards_precipitate*"]
+exclude = ["girder_dashboards_precipitate.tests*"]
+
+[tool.pytest.ini_options]
+cache_dir = "build/test/pytest_cache"
+junit_family = "xunit2"
+testpaths = ["girder_dashboards_precipitate/tests"]
